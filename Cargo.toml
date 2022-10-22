@@ -1,0 +1,21 @@
+[package]
+name = "turing-machine"
+version = "0.0.1"
+edition = "2021"
+authors = ["Pavel Grogorenko <grigorenkopv@ya.ru>"]
+description = "Turing machine emulator"
+
+[dependencies]
+anyhow = "1.0.66"
+clap = { version = "4.0.18", features = [
+    "color",
+    "help",
+    "std",
+    # "suggestions",
+    "usage",
+    "cargo",
+    "derive",
+    # "wrap_help",
+    "unicode",
+], default-features = false }
+nom = "7.1.1"

@@ -1,0 +1,8 @@
+start: even
+accept: ac
+reject: rj
+blank: _
+even _ -> ac _ ^
+even 0 -> odd _ >
+odd 0 -> even _ >
+odd _ -> rj _ >
