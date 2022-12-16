@@ -1,10 +1,11 @@
 use std::{fs::File, io, path::PathBuf};
 
-use anyhow::{anyhow, Context as _, Result};
-use clap::Parser;
+use anyhow::{Context as _, Result};
+use chumsky::Parser as _;
+use clap::Parser as _;
 
 mod cli;
-mod parse;
+mod parsing;
 
 fn run(file: Option<PathBuf>) -> Result<()> {
     fn read_all(mut input: impl io::Read) -> io::Result<String> {
@@ -17,8 +18,8 @@ fn run(file: Option<PathBuf>) -> Result<()> {
     } else {
         read_all(io::stdin()).context("Error reading from stdin")
     }?;
-    let parsed = parse::file(data.as_str()).map_err(|()| anyhow!("Error parsing"))?;
-    dbg!(parsed);
+    let parser = parsing::parser();
+    dbg!(parser.parse(data));
     todo!()
 }
 

@@ -31,6 +31,10 @@ impl Tape {
         }
     }
 
+    pub fn empty(blank: Symbol) -> Self {
+        Self::new(VecDeque::new(), blank)
+    }
+
     pub fn get_blank(&self) -> Symbol {
         self.blank.clone()
     }
