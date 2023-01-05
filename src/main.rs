@@ -19,6 +19,7 @@ fn run(file: Option<PathBuf>) -> Result<()> {
         read_all(io::stdin()).context("Error reading from stdin")
     }?;
     let parser = parsing::parser();
+    // TODO: error formatting
     dbg!(parser.parse(data));
     todo!()
 }

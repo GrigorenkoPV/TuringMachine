@@ -7,75 +7,80 @@ mod tests;
 pub type Input = char;
 pub type ParsingError = Simple<Input>;
 
-fn header<P, T>(name: &'static str, p: P) -> impl Parser<Input, T, Error = ParsingError>
-where
-    P: Parser<Input, T, Error = ParsingError>,
-    T: Clone,
-{
-    just(name).ignore_then(just(": ")).ignore_then(p)
-}
-
-pub fn parser() -> impl Parser<Input, TuringMachine, Error = ParsingError> {
+// TODO: better checks for reject/accept
+pub fn parser() -> impl Parser<Input, (Rules, State), Error = ParsingError> {
     let ident = filter(|c: &Input| !c.is_whitespace())
         .repeated()
         .at_least(1)
         .collect::<String>();
 
-    let symbol = ident.map(Symbol::from);
-    let state = ident.map(State::from);
+    let header = |name| just(name).ignore_then(just(": ")).ignore_then(ident);
 
-    let direction = choice((
-        just('<').to(Direction::Left),
-        just('^').to(Direction::InPlace),
-        just('>').to(Direction::Right),
-    ));
-
-    let whitespace = filter(|&c: &Input| c.is_whitespace() && !"\r\n".contains(c)).ignored();
-    let some_whitespace = whitespace.repeated().at_least(1);
-
-    let rule_lhs = state
-        .then_ignore(some_whitespace)
-        .then(symbol)
-        .labelled("Rule LHS");
-    let rule_rhs = state
-        .then_ignore(some_whitespace)
-        .then(symbol)
-        .then_ignore(some_whitespace)
-        .then(direction)
-        .map(|((state, symbol), direction)| (state, symbol, direction))
-        .labelled("Rule RHS");
-    let rule = rule_lhs
-        .then_ignore(some_whitespace)
-        .then_ignore(just("->"))
-        .then_ignore(some_whitespace)
-        .then(rule_rhs)
-        .labelled("Rule");
-
-    header("start", state)
+    header("start")
         .then_ignore(text::newline())
-        .then(header("accept", state))
+        .then(header("accept"))
         .then_ignore(text::newline())
-        .then(header("reject", state))
+        .then(header("reject"))
         .then_ignore(text::newline())
-        .then(header("blank", symbol))
-        .then(
+        .then(header("blank"))
+        .then_with(move |(((start, accept), reject), blank)| {
+            let start = State::Intermediate(start.into());
+            let symbol = ident.map(move |s| {
+                if s == blank {
+                    Symbol::Blank
+                } else {
+                    Symbol::NonBlank(s.into())
+                }
+            });
+            let state = ident.map(move |s| {
+                if s == accept {
+                    State::Accept
+                } else if s == reject {
+                    State::Reject
+                } else {
+                    State::Intermediate(s.into())
+                }
+            });
+
+            let whitespace =
+                filter(|&c: &Input| c.is_whitespace() && !"\r\n".contains(c)).ignored();
+            let some_whitespace = whitespace.repeated().at_least(1);
+
+            let rule_lhs = ident
+                .map(IntermediateStateName::from)
+                .then_ignore(some_whitespace)
+                .then(symbol.clone())
+                .labelled("Rule LHS");
+
+            let direction = choice((
+                just('<').to(Direction::Left),
+                just('^').to(Direction::InPlace),
+                just('>').to(Direction::Right),
+            ));
+
+            let rule_rhs = state
+                .then_ignore(some_whitespace)
+                .then(symbol)
+                .then_ignore(some_whitespace)
+                .then(direction)
+                .map(|((state, symbol), direction)| (state, symbol, direction))
+                .labelled("Rule RHS");
+            let rule = rule_lhs
+                .then_ignore(some_whitespace)
+                .then_ignore(just("->"))
+                .then_ignore(some_whitespace)
+                .then(rule_rhs)
+                .labelled("Rule");
+
             text::newline()
                 .repeated()
                 .at_least(1)
                 .ignore_then(rule)
                 .repeated()
                 .collect::<Rules>()
-                .labelled("Rules"),
-        )
-        .map(
-            |((((start, accept), reject), blank), rules)| TuringMachine {
-                tape: Tape::empty(blank),
-                state: start,
-                accept,
-                reject,
-                rules,
-            },
-        )
+                .labelled("Rules")
+                .map(move |rules| (rules, start.to_owned()))
+        })
         .then_ignore(text::newline().repeated())
         .then_ignore(end())
         .labelled("Turing machine")

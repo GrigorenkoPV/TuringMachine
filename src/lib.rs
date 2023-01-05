@@ -3,6 +3,8 @@ use std::{
     rc::Rc,
 };
 
+// TODO: manual Debug impl's
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Direction {
     Left,
@@ -10,34 +12,26 @@ pub enum Direction {
     Right,
 }
 
-pub type Symbol = Rc<str>;
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+pub enum Symbol {
+    Blank,
+    NonBlank(Rc<str>),
+}
 
 #[derive(Clone, Debug)]
 pub struct Tape {
     tape: VecDeque<Symbol>,
-    blank: Symbol,
     pos: usize,
 }
 
 impl Tape {
-    pub fn new(mut tape: VecDeque<Symbol>, blank: Symbol) -> Self {
+    pub fn new(mut tape: VecDeque<Symbol>) -> Self {
         if tape.is_empty() {
-            tape.push_back(blank.clone());
+            tape.push_back(Symbol::Blank);
         }
-        Self {
-            tape,
-            blank,
-            pos: 0,
-        }
+        Self { tape, pos: 0 }
     }
 
-    pub fn empty(blank: Symbol) -> Self {
-        Self::new(VecDeque::new(), blank)
-    }
-
-    pub fn get_blank(&self) -> Symbol {
-        self.blank.clone()
-    }
     pub fn get_current(&self) -> Symbol {
         self.tape[self.pos].clone()
     }
@@ -48,7 +42,7 @@ impl Tape {
             InPlace => {}
             Left => {
                 if self.pos == 0 {
-                    self.tape.push_front(self.get_blank())
+                    self.tape.push_front(Symbol::Blank)
                 } else {
                     self.pos -= 1
                 }
@@ -56,7 +50,7 @@ impl Tape {
             Right => {
                 self.pos += 1;
                 if self.pos == self.tape.len() {
-                    self.tape.push_back(self.get_blank())
+                    self.tape.push_back(Symbol::Blank)
                 }
             }
         }
@@ -66,48 +60,42 @@ impl Tape {
     }
 }
 
-pub type State = Rc<str>;
-pub type RuleLHS = (State, Symbol);
+pub type IntermediateStateName = Rc<str>;
+
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+pub enum State {
+    Accept,
+    Reject,
+    Intermediate(IntermediateStateName),
+}
+
+pub type RuleLHS = (IntermediateStateName, Symbol);
 pub type RuleRHS = (State, Symbol, Direction);
 pub type Rules = HashMap<RuleLHS, RuleRHS>;
 
 #[derive(Clone, Debug)]
 pub struct TuringMachine {
     pub tape: Tape,
-    pub state: State,
-    pub accept: State,
-    pub reject: State,
     pub rules: Rules,
-}
-
-pub enum StepResult {
-    InProgress,
-    Accept,
-    RejectByRule,
-    RejectByNoRule,
+    pub state: State,
 }
 
 impl TuringMachine {
-    pub fn step(&mut self) -> StepResult {
-        use StepResult::*;
+    pub fn step(&mut self) {
+        let State::Intermediate(current_state_name) = &self.state else{
+            todo!("Can't run from non-intermediate state")
+        };
+
         if let Some((state, symbol, step)) = self
             .rules
-            .get(&(self.state.to_owned(), self.tape.get_current()))
-            .map(|x| x.to_owned())
+            .get(&(current_state_name.to_owned(), self.tape.get_current()))
+            .map(ToOwned::to_owned)
         {
-            self.state = state;
             self.tape.put(symbol);
             self.tape.step(step);
-            if self.state == self.accept {
-                Accept
-            } else if self.state == self.reject {
-                RejectByRule
-            } else {
-                InProgress
-            }
+            self.state = state;
         } else {
-            self.state = self.reject.to_owned();
-            RejectByNoRule
+            self.state = State::Reject;
         }
     }
 }

@@ -1,14 +1,22 @@
 [package]
 name = "turing-machine"
-version = "0.0.2"
+version = "0.1.0"
 edition = "2021"
 authors = ["Pavel Grogorenko <grigorenkopv@ya.ru>"]
 description = "Turing machine emulator"
 
+
 [dependencies]
-anyhow = "1.0.66"
-chumsky = { version = "0.8.0", default-features = false }
-clap = { version = "4.0", features = [
+anyhow = "1.0"
+
+[dependencies.chumsky]
+version = "0.8"
+default-features = false
+
+[dependencies.clap]
+version = "4.0"
+default-features = false
+features = [
     "color",
     "help",
     "std",
@@ -18,4 +26,4 @@ clap = { version = "4.0", features = [
     "derive",
     "wrap_help",
     "unicode",
-], default-features = false }
+]
